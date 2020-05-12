@@ -2,6 +2,10 @@ clone this repo
 
 Edit the first four lines of the runsheet.ps1 for your configuration, then run it.
 
+If you do nor already have the API Gateway and API Microgateway docker images pulled, you will need to be on the corporate network or VPN for the script to be able to pull them:
+    daerepository03.eur.ad.sag:4443/softwareag/apigateway-trial:10.5.0.2
+    daerepository03.eur.ad.sag:4443/softwareag/microgateway-trial:10.5.0.2
+
 If you have not done so, it will ask you to install the Azure CLI and download the Istio archive
 
 You will also need access to a DNS Domain so that you can point a subdomain at the Azure DNS Zone for handling access to the ingess.
