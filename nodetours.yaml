@@ -104,10 +104,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - nodetours.aks.au-poc.com
-    secretName: nodetours.tls-secret
+    - nodetours.DNS_ZONE
+    secretName: nodetours-tls-secret
   rules:
-  - host: nodetours.aks.au-poc.com
+  - host: nodetours.DNS_ZONE
     http:
       paths:
         - path: /

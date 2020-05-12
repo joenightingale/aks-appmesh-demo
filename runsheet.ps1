@@ -1,7 +1,14 @@
 Set-Variable -Name "RESOURCE_GROUP" -Value  "AKS"
 Set-Variable -Name "AZURE_REGION" -Value    "westus2"
 Set-Variable -Name "CLUSTER_NAME" -Value    "au-poc"
-Set-Variable -Name "DNS_ZONE" -Value        "aks.au-poc.com"
+Set-Variable -Name "DNS_ZONE" -Value        "aks-iw.au-poc.com"
+Set-Variable -Name "ACME_EMAIL" -Value      "name@domain.com"
+
+Get-Content cluster-issuer.yaml | sed "s/ACME_EMAIL/$ACME_EMAIL/g" > cluster-issuer-$RESOURCE_GROUP.yaml
+Get-Content kubernetes-dashboard-ingress.yaml| sed "s/DNS_ZONE/$DNS_ZONE/g" >  kubernetes-dashboard-ingress-$RESOURCE_GROUP.yaml
+Get-Content kiali-ingress.yaml | sed "s/DNS_ZONE/$DNS_ZONE/g" >  kiali-ingress-$RESOURCE_GROUP.yaml
+Get-Content api-gateway-deployment-external-elasticsearch.yaml | sed "s/DNS_ZONE/$DNS_ZONE/g" >  api-gateway-deployment-external-elasticsearch-$RESOURCE_GROUP.yaml
+Get-Content nodetours.yaml | sed "s/DNS_ZONE/$DNS_ZONE/g" >  nodetours-$RESOURCE_GROUP.yaml
 
 Function pause ($message)
 {
@@ -49,8 +56,32 @@ if ((Get-Command "kubectl" -ErrorAction SilentlyContinue) -eq $null)
   Write-Output "Rerun this command when done."
   exit
 }
+
+Write-Output "Checking that the API Gateway and Microgateway images are present"
+if (($(docker images | awk '/daerepository03.eur.ad.sag:4443\/softwareag\/microgateway-trial/ { print $2 }') -ne "10.5.0.2") -or
+    ($(docker images | awk '/daerepository03.eur.ad.sag:4443\/softwareag\/apigateway-trial/ { print $2 }') -ne "10.5.0.2"))
+{
+  if ($(ping -n 1 daerepository03.eur.ad.sag | awk '/Reply from/ { print $1 }') -ne "Reply")
+  {
+    Write-Output "******************************************************************************"
+    Write-Output "Please connect to the VPN to pull the API Gateway & Microgateway docker images"
+    Write-Output "******************************************************************************"
+    exit
+  }
+  Write-Output "Pulling API Microgateway image from internal registry. Ensure you are on the VPN"
+  docker pull daerepository03.eur.ad.sag:4443/softwareag/apigateway-trial:10.5.0.2
+  Write-Output "Pulling API Microgateway image from internal registry. Ensure you are on the VPN"
+  docker pull daerepository03.eur.ad.sag:4443/softwareag/microgateway-trial:10.5.0.2
+}
+
 Write-Output "Creating Azure Resource Group: $RESOURCE_GROUP"
 az group create --name $RESOURCE_GROUP --location $AZURE_REGION
+Write-Output "Creating DNS Zone: $DNS_ZONE in Azure"
+az network dns zone create --resource-group $RESOURCE_GROUP --name $DNS_ZONE
+Write-Output "****************************************************"
+Write-Output "Please ensure your DNS registrar now points $DNS_ZONE to the Azure NameServers above"
+Write-Output "****************************************************"
+pause "Press any key to continue, when this is done"
 Write-Output "Creating AZK Cluster: $CLUSTER_NAME"
 az aks create --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME --node-count 2 --enable-addons monitoring --generate-ssh-keys
 Write-Output "Adding AZK Cluster credentials to Kube Config"
@@ -58,12 +89,6 @@ az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME --o
 kubectl config use-context $CLUSTER_NAME
 Write-Output "Listing AZK Cluster nodes"
 kubectl get nodes
-Write-Output "Creating DNS Zone: $DNS_ZONE in Azure"
-az network dns zone create --resource-group $RESOURCE_GROUP --name $DNS_ZONE
-Write-Output "****************************************************"
-Write-Output "Please ensure your DNS registrar now points $DNS_ZONE to the Azure NameServers above"
-Write-Output "****************************************************"
-pause "Press any key to continue, when this is done"
 
 Write-Output "Creating nginx-ingress namespace"
 kubectl create namespace nginx-ingress
@@ -97,7 +122,7 @@ helm install cert-manager --version v0.13.0  jetstack/cert-manager --wait
 Write-Output "Wait for cert-manager to be ready..."
 Start-Sleep 60
 Write-Output "Creating letsencrypt ClusterIssuer"
-kubectl apply -f cluster-issuer.yaml
+kubectl apply -f cluster-issuer-$RESOURCE_GROUP.yaml
 Write-Output "Install kubernetes-dashboard"
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0-beta8/aio/deploy/recommended.yaml
 kubectl config set-context --current --namespace=kubernetes-dashboard
@@ -110,7 +135,7 @@ Set-Variable -Name "TOKEN_SECRET" -Value $(kubectl get secret | awk '/dashboard-
 Write-Output "Describe login token secret for admin-sa"
 kubectl describe secret $TOKEN_SECRET
 Write-Output "Create kubernetes-dashboard ingress on address: kubernetes-dashboard.$DNS_ZONE"
-kubectl apply -f kubernete-dashboard-ingress.yaml
+kubectl apply -f kubernetes-dashboard-ingress-$RESOURCE_GROUP.yaml
 do
 {
   Set-Variable -Name "CERT_READY" -Value $(kubectl get certificate | awk '/kubernetes-dashboard-secret/ { print $2 }')
@@ -138,13 +163,13 @@ Write-Output "Push API Gateway and API Microgateway to harbor"
 Write-Output $(kubectl get secret --namespace registries harbor-core-envvars -o jsonpath="{.data.HARBOR_ADMIN_PASSWORD}" | base64 -i -d) | docker login -u admin --password-stdin harbor.$DNS_ZONE/library
 docker tag daerepository03.eur.ad.sag:4443/softwareag/apigateway-trial:10.5.0.2  harbor.$DNS_ZONE/library/softwareag/apigateway-trial:10.5.0.2
 docker push harbor.$DNS_ZONE/library/softwareag/apigateway-trial:10.5.0.2
-docker tag dtr.eur.ad.sag:4443/softwareag/microgateway-trial:10.5.0.2  harbor.$DNS_ZONE/library/softwareag/microgateway-trial:10.5.0.2
+docker tag daerepository03.eur.ad.sag:4443/softwareag/microgateway-trial:10.5.0.2  harbor.$DNS_ZONE/library/softwareag/microgateway-trial:10.5.0.2
 docker push harbor.$DNS_ZONE/library/softwareag/microgateway-trial:10.5.0.2
 
 Write-Output "Install istio"
 istioctl manifest apply --set profile=demo
 Write-Output "Create Kiali ingress"
-kubectl apply -f .\kiali-ingress.yaml -n istio-system
+kubectl apply -f .\kiali-ingress-$RESOURCE_GROUP.yaml -n istio-system
 do
 {
   Set-Variable -Name "CERT_READY" -Value $(kubectl get certificate -n istio-system | awk '/kiali-secret/ { print $2 }')
@@ -167,16 +192,29 @@ kubectl config set-context --current --namespace=nodetours
 Write-Output "Disabling istio injection on the nodetours namespace before installing API Gateway installation"
 kubectl label namespace nodetours istio-injection=disabled --overwrite
 Write-Output "Installing API Gateway"
-kubectl apply -f .\api-gateway-deployment-external-elasticsearch.yaml
-
+kubectl apply -f .\api-gateway-deployment-external-elasticsearch-$RESOURCE_GROUP.yaml
+do
+{
+  Set-Variable -Name "CERT_READY" -Value $(kubectl get certificate | awk '/api-gateway-tls-secret/ { print $2 }')
+  Start-Sleep 30
+  Write-Output "Waiting for nodetours certificate to be generated... ($CERT_READY)"  
+} While ($CERT_READY -ne "True")
+Write-Output "Certificate ready..."
 Write-Output "Checking status of API Gateway pods"
 kubectl get pods
 
 Write-Output "Enabling istio injection on nodetours namespace"
 kubectl label namespace nodetours istio-injection=enabled
 Write-Output "Installing nodetours demo"
-kubectl apply -f .\nodetours.yaml
+kubectl apply -f .\nodetours-$RESOURCE_GROUP.yaml
 Write-Output "Checking status of Nodetours demo pods"
+do
+{
+  Set-Variable -Name "CERT_READY" -Value $(kubectl get certificate | awk '/nodetours-tls-secret/ { print $2 }')
+  Start-Sleep 30
+  Write-Output "Waiting for nodetours certificate to be generated... ($CERT_READY)"  
+} While ($CERT_READY -ne "True")
+Write-Output "Certificate ready..."
 kubectl get pods
 
 

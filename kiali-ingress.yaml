@@ -9,10 +9,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - kiali.aks.au-poc.com
+    - kiali.DNS_ZONE
     secretName: kiali-secret
   rules:
-  - host: kiali.aks.au-poc.com
+  - host: kiali.DNS_ZONE
     http:
       paths:
       - backend:

@@ -99,10 +99,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - api-gateway.aks.au-poc.com
-    secretName: api-gateway.tls-secret
+    - api-gateway.DNS_ZONE
+    secretName: api-gateway-tls-secret
   rules:
-  - host: api-gateway.aks.au-poc.com
+  - host: api-gateway.DNS_ZONE
     http:
       paths:
         - path: /

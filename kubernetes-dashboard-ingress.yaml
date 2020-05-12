@@ -10,10 +10,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - kubernetes-dashboard.aks.au-poc.com
+    - kubernetes-dashboard.DNS_ZONE
     secretName: kubernetes-dashboard-secret
   rules:
-  - host: kubernetes-dashboard.aks.au-poc.com
+  - host: kubernetes-dashboard.DNS_ZONE
     http:
       paths:
       - backend:
