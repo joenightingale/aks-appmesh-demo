@@ -24,7 +24,7 @@ spec:
       containers:
       - name: api-gateway-deployment-external-es
         # Please fill in the path to your api gateway image stored in a docker registry.
-        image: harbor.aks.au-poc.com/library/softwareag/apigateway-trial:10.5.0.2
+        image: harbor.DNS_ZONE/library/softwareag/apigateway-trial:10.5.0.2
         # The default pull policy is IfNotPresent which causes the Kubelet to skip pulling an image if it already exists.
         # If you would like to always force a pull use "Always"        
         imagePullPolicy: IfNotPresent
