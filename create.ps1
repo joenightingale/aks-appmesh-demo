@@ -1,8 +1,13 @@
-Set-Variable -Name "RESOURCE_GROUP" -Value  "AKS"
-Set-Variable -Name "AZURE_REGION" -Value    "westus2"
-Set-Variable -Name "CLUSTER_NAME" -Value    "au-poc"
-Set-Variable -Name "DNS_ZONE" -Value        "aks-iw.au-poc.com"
-Set-Variable -Name "ACME_EMAIL" -Value      "name@domain.com"
+$PropertyFilePath=".\input.properties"
+$RawProperties=Get-Content $PropertyFilePath;
+$PropertiesToConvert=($RawProperties -replace '\\','\\') -join [Environment]::NewLine;
+$Properties=ConvertFrom-StringData $PropertiesToConvert;
+
+Set-Variable -Name "RESOURCE_GROUP" -Value  $Properties["RESOURCE_GROUP"]
+Set-Variable -Name "AZURE_REGION" -Value    $Properties["AZURE_REGION"]
+Set-Variable -Name "CLUSTER_NAME" -Value    $Properties["CLUSTER_NAME"]
+Set-Variable -Name "DNS_ZONE" -Value        $Properties["DNS_ZONE"]
+Set-Variable -Name "ACME_EMAIL" -Value      $Properties["ACME_EMAIL"]
 
 Get-Content cluster-issuer.yaml | sed "s/ACME_EMAIL/$ACME_EMAIL/g" > cluster-issuer-$RESOURCE_GROUP.yaml
 Get-Content kubernetes-dashboard-ingress.yaml| sed "s/DNS_ZONE/$DNS_ZONE/g" >  kubernetes-dashboard-ingress-$RESOURCE_GROUP.yaml
@@ -216,6 +221,3 @@ do
 } While ($CERT_READY -ne "True")
 Write-Output "Certificate ready..."
 kubectl get pods
-
-
-

@@ -1,6 +1,6 @@
 clone this repo
 
-Edit the first four lines of the runsheet.ps1 for your configuration, then run it.
+Edit the input.properties file for your configuration, then run thr .\create.ps1
 
 If you do nor already have the API Gateway and API Microgateway docker images pulled, you will need to be on the corporate network or VPN for the script to be able to pull them:
 ```daerepository03.eur.ad.sag:4443/softwareag/apigateway-trial:10.5.0.2```
@@ -18,3 +18,4 @@ NS	aks	ns3-08.azure-dns.org	1 Hour	Edit
 NS	aks	ns4-08.azure-dns.info	1 Hour  Edit```
 With the exact ns addresses being those displayed during the execution of the runsheet.ps1
 
+To delete everything created from Azure run .\cleanup.ps1
