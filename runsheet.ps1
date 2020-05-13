@@ -190,7 +190,7 @@ Write-Output "Create nodetours namespace..."
 kubectl create namespace nodetours
 kubectl config set-context --current --namespace=nodetours
 Write-Output "Disabling istio injection on the nodetours namespace before installing API Gateway installation"
-kubectl label namespace nodetours istio-injection=disabled --overwrite
+kubectl label namespace nodetours istio-injection=disabled --overwrite=true
 Write-Output "Installing API Gateway"
 kubectl apply -f .\api-gateway-deployment-external-elasticsearch-$RESOURCE_GROUP.yaml
 do
@@ -204,7 +204,7 @@ Write-Output "Checking status of API Gateway pods"
 kubectl get pods
 
 Write-Output "Enabling istio injection on nodetours namespace"
-kubectl label namespace nodetours istio-injection=enabled
+kubectl label namespace nodetours istio-injection=enabled --overwrite=true
 Write-Output "Installing nodetours demo"
 kubectl apply -f .\nodetours-$RESOURCE_GROUP.yaml
 Write-Output "Checking status of Nodetours demo pods"
