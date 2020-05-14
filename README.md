@@ -9,6 +9,18 @@ You will need the following:
 * helm exe in the path
 * A domain name so that a subdomain can be redirected to the Azure name servers
 
+# What gets created and installed?
+An Azure Resource Group
+An AKS Cluster with 2 nodes
+nginx-ingress & cert-manager to allow creation of HTTPS endpoints
+kubernetes-dashboard accessible on https://kubernetes-dashboard.<$DNS_ZONE>
+Harbor private registry accessible on https://harbor.<$DNS_ZONE>
+Istio, with Kiali accessible on https://kiali.<$DNS_ZONE>
+API Gateway 10.5.0.2 with the UI accessible on https://api-gateway.<$DNS_ZONE>/apigatewayui
+                      and the API IS endpoint on https://api-gateway.<$DNS_ZONE>/
+The Nodetours demo microservices application accessible on https://nodetours.<$DNS_ZONE>/
+** Note that this is an HTTPS port...
+
 # Instructions
 clone this repo
 Edit the input.properties file for your configuration
@@ -27,7 +39,9 @@ This should look something like:
 ```NS	aks	ns1-08.azure-dns.com	1 Hour	Edit
 NS	aks	ns2-08.azure-dns.net	1 Hour	Edit
 NS	aks	ns3-08.azure-dns.org	1 Hour	Edit
-NS	aks	ns4-08.azure-dns.info	1 Hour  Edit```
+NS	aks	ns4-08.azure-dns.info	1 Hour  Edit
+```
 With the exact ns addresses being those displayed during the execution of the runsheet.ps1
 
+# Cleanup
 To delete everything created from Azure run .\cleanup.ps1
