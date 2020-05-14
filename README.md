@@ -11,15 +11,15 @@ You will need the following:
 * You will also need to be on the SAG Network to access the daerepository03.eur.ad.sag internal docker registry and pull the API Gateway amd Microgateway docker images (if you have not previously pulled them).
 
 # What gets created and installed?
-An Azure Resource Group
-An AKS Cluster with 2 nodes
-nginx-ingress & cert-manager to allow creation of HTTPS endpoints
-kubernetes-dashboard accessible on https://kubernetes-dashboard.<$DNS_ZONE>
-Harbor private registry accessible on https://harbor.<$DNS_ZONE>
-Istio, with Kiali accessible on https://kiali.<$DNS_ZONE>
-API Gateway 10.5.0.2 with the UI accessible on https://api-gateway.<$DNS_ZONE>/apigatewayui
+* An Azure Resource Group
+* An AKS Cluster with 2 nodes
+* nginx-ingress & cert-manager to allow creation of HTTPS endpoints
+* kubernetes-dashboard accessible on https://kubernetes-dashboard.<$DNS_ZONE>
+* Harbor private registry accessible on https://harbor.<$DNS_ZONE>
+* Istio, with Kiali accessible on https://kiali.<$DNS_ZONE>
+* API Gateway 10.5.0.2 with the UI accessible on https://api-gateway.<$DNS_ZONE>/apigatewayui
                       and the API IS endpoint on https://api-gateway.<$DNS_ZONE>/
-The Nodetours demo microservices application accessible on https://nodetours.<$DNS_ZONE>/
+* The Nodetours demo microservices application accessible on https://nodetours.<$DNS_ZONE>/
 ** Note that this is an HTTPS port...
 
 # Instructions
