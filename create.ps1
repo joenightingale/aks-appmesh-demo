@@ -51,7 +51,18 @@ if ((Get-Command "istioctl" -ErrorAction SilentlyContinue) -eq $null)
   Write-Output "****************************************************"
   exit
 }
-  
+if ((Get-Command "helm" -ErrorAction SilentlyContinue) -eq $null) 
+{ 
+  Write-Output "****************************************************"
+  Write-Output "Please download the latest version of helm from: "
+  Write-Output "https://helm.sh/docs/intro/quickstart/"
+  Write-Output "and add the bin folder to your path"
+  Write-Output ""
+  Write-Output "Rerun this command when done."
+  Write-Output "****************************************************"
+  exit
+}
+
 Write-Output "Logging into Azure"
 az login
 if ((Get-Command "kubectl" -ErrorAction SilentlyContinue) -eq $null) 
@@ -153,6 +164,7 @@ Write-Output "Create registries namespace..."
 kubectl create namespace registries
 kubectl config set-context --current --namespace=registries
 Write-Output "Install harbor using helm"
+helm repo add bitnami https://charts.bitnami.com/bitnami
 helm install harbor bitnami/harbor --set service.type=Ingress --set service.ingress.hosts.core=harbor.$DNS_ZONE --set service.ingress.annotations.'cert-manager\.io/cluster-issuer'=letsencrypt --set service.ingress.annotations.'kubernetes\.io/ingress\.class'=nginx --set externalURL=https://harbor.$DNS_ZONE --set service.tls.secretName=bitnami-harbor-ingress-cert --set notary.enabled=false --wait
 do
 {
