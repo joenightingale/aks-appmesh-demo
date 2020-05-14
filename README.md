@@ -8,6 +8,7 @@ You will need the following:
 * Istioctl exe in the path
 * helm exe in the path
 * A domain name so that a subdomain can be redirected to the Azure name servers
+* You will also need to be on the SAG Network to access the daerepository03.eur.ad.sag internal docker registry and pull the API Gateway amd Microgateway docker images (if you have not previously pulled them).
 
 # What gets created and installed?
 An Azure Resource Group
