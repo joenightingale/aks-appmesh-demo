@@ -23,9 +23,9 @@ spec:
         image: przemekulik/nodetours:2.0
         imagePullPolicy: IfNotPresent
         env:
-          - name: DB_HOSTNAME
+          - name: DB_HOSTNAME_NO
             value: localhost
-          - name: DB_PORT
+          - name: DB_PORT_NO
             value: '27017'
         ports:
         - name: 7777http
@@ -89,8 +89,9 @@ spec:
     app: nodetours
   type:  NodePort
   ports:
-  - name:  7777http
-    port:  7777
+  - name:  7070http
+    port:  7070
+    targetPort: 7777
     protocol: TCP
 ---
 apiVersion: extensions/v1beta1
@@ -113,4 +114,4 @@ spec:
         - path: /
           backend:
             serviceName: nodetours
-            servicePort: 7777
+            servicePort: 7070

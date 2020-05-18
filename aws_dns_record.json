@@ -1,0 +1,12 @@
+{
+   "Comment": "CREATE/DELETE/UPSERT a record ",
+   "Changes": [{
+      "Action": "CREATE",
+         "ResourceRecordSet": {
+               "Name": "*.DNS_ZONE",
+               "Type": "CNAME",
+               "TTL": 300,
+            "ResourceRecords": [{ "Value":"NGINX_INGRESS"}]
+         }
+   }]
+}
