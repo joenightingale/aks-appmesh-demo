@@ -3,6 +3,7 @@ This sample automated the creation of an Azure AKS Cluster installed with all of
 # Prerequisites
 You will need the following:
 * Docker Desktop
+* Git for Windows installed with the unix tools available to all shells
 * An Azure account
 * Azure Command Line Interface installed
 * Istioctl exe in the path
