@@ -1,0 +1,21 @@
+apiVersion: cert-manager.io/v1alpha2
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-dns
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: ACME_EMAIL
+    privateKeySecretRef:
+      name: letsencrypt-dns
+    solvers:
+    - selector:
+        dnsZones:
+          - "ig.DNS_ZONE"
+      dns01:
+        route53:
+          region: AWS_REGION
+          accessKeyID: AWS_ACCESS_KEY
+          secretAccessKeySecretRef:
+            name: route53-credentials-secret
+            key: secret-access-key

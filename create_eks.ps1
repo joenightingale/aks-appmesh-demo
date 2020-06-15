@@ -61,6 +61,9 @@ if ((Get-Command "istioctl" -ErrorAction SilentlyContinue) -eq $null)
 Write-Output "Configuring AWS Connection properties"
 aws configure
 
+Write-Output "Get AWS AIM ID"
+Set-Variable -Name "AWS_IAM_ID" -Value      $(aws iam get-user | awk '/Arn/ { split ($2, a, "":""); print a[5]; }')
+
 Write-Output "Checking that the API Gateway and Microgateway images are present"
 if (($(docker images | awk '/daerepository03.eur.ad.sag:4443\/softwareag\/microgateway-trial/ { print $2 }') -ne "10.5.0.2") -or
     ($(docker images | awk '/daerepository03.eur.ad.sag:4443\/softwareag\/apigateway-trial/ { print $2 }') -ne "10.5.0.2"))
@@ -87,6 +90,19 @@ Write-Output "****************************************************"
 Write-Output "Please ensure your DNS registrar now points $DNS_ZONE to the Azure NameServers above"
 Write-Output "****************************************************"
 pause "Press any key to continue, when this is done"
+
+Write-Output "Creating cluster-issuer policy"
+Set-Variable -Name "AWS_POLICY_ARN" -Value $(aws iam create-policy --policy-name cert-manager --policy-document file://cert-manager-aws-iam-policy.json | awk '/Arn/ { split ($2, a, ""\\""""); print a[2]; }')
+
+Write-Output "Creating dns-manager role"
+Get-Content cert-manager-aws-iam-trust-policy.json | sed "s/AWS_IAM_ID/$AWS_IAM_ID/g" > cert-manager-aws-iam-trust-policy-$RESOURCE_GROUP.json
+Set-Variable -Name "AWS_ROLE_ARN" -Value $(aws iam create-role --role-name dns-manager --assume-role-policy-document file://cert-manager-aws-iam-trust-policy-$RESOURCE_GROUP.json | awk '/Arn/ { split ($2, a, ""\\""""); print a[2]; }')
+aws iam attach-role-policy --role-name dns-manager --policy-arn "$AWS_POLICY_ARN"
+
+Write-Output "Creating route53 cluster-issuer role"
+Get-Content cluster-issuer-Route53.yaml | sed "s/AWS_IAM_ID/$AWS_IAM_ID/g" | sed "s/AWS_IAM_ID/$AWS_IAM_ID/g" | sed "s/AWS_ACCESS_KEY/$AWS_ACCESS_KEY/g"  | sed "s/DNS_ZONE/$DNS_ZONE/g" > cluster-issuer-Route53-$RESOURCE_GROUP.yaml
+kubectl apply -f cluster-issuer-Route53-$RESOURCE_GROUP.yaml -n nginx-ingress
+
 Write-Output "Creating EKS Cluster: $CLUSTER_NAME"
 eksctl create cluster --name $CLUSTER_NAME --region $AWS_REGION
 
@@ -159,7 +175,7 @@ kubectl create namespace registries
 kubectl config set-context --current --namespace=registries
 Write-Output "Install harbor using helm"
 helm repo add bitnami https://charts.bitnami.com/bitnami
-helm install harbor bitnami/harbor --set service.type=Ingress --set service.ingress.hosts.core=harbor.$DNS_ZONE --set service.ingress.annotations.'cert-manager\.io/cluster-issuer'=letsencrypt --set service.ingress.annotations.'kubernetes\.io/ingress\.class'=nginx --set externalURL=https://harbor.$DNS_ZONE --set service.tls.secretName=bitnami-harbor-ingress-cert --set notary.enabled=false --wait
+helm install harbor bitnami/harbor --version 5.4.0 --set service.type=Ingress --set service.ingress.hosts.core=harbor.$DNS_ZONE --set service.ingress.annotations.'cert-manager\.io/cluster-issuer'=letsencrypt --set service.ingress.annotations.'kubernetes\.io/ingress\.class'=nginx --set externalURL=https://harbor.$DNS_ZONE --set service.tls.secretName=bitnami-harbor-ingress-cert --set notary.enabled=false --wait
 do
 {
   Set-Variable -Name "CERT_READY" -Value $(kubectl get certificate | awk '/bitnami-harbor-ingress-cert/ { print $2 }')
