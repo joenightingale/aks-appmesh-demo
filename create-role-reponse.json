@@ -1,0 +1,19 @@
+{
+    "Role": {
+        "Path": "/",
+        "RoleName": "dns-manager",
+        "RoleId": "AROA36ZRBUR7OJ7ZPFSPB",
+        "Arn": "arn:aws:iam::822052234366:role/dns-manager",
+        "CreateDate": "2020-06-10T07:52:59+00:00",
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": "arn:aws:iam::822052234366:root"
+                },
+                "Action": "sts:AssumeRole"
+            }
+        }
+    }
+})

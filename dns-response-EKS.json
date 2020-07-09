@@ -1,0 +1,25 @@
+{
+    "Location": "https://route53.amazonaws.com/2013-04-01/hostedzone/Z08272042HBIDB7GNJTB7",
+    "HostedZone": {
+        "Id": "/hostedzone/Z08272042HBIDB7GNJTB7",
+        "Name": "eks-iw.au-poc.com.",
+        "CallerReference": "Thu, Jun 11, 2020  9:18:43 AM",
+        "Config": {
+            "PrivateZone": false
+        },
+        "ResourceRecordSetCount": 2
+    },
+    "ChangeInfo": {
+        "Id": "/change/C0370031334P2NNZQAAFT",
+        "Status": "PENDING",
+        "SubmittedAt": "2020-06-10T23:17:47.973000+00:00"
+    },
+    "DelegationSet": {
+        "NameServers": [
+            "ns-189.awsdns-23.com",
+            "ns-745.awsdns-29.net",
+            "ns-1299.awsdns-34.org",
+            "ns-1678.awsdns-17.co.uk"
+        ]
+    }
+}

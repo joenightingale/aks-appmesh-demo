@@ -1,0 +1,102 @@
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: ingress-cert
+  namespace: istio-system
+spec:
+  secretName: ingress-cert
+  commonName: "*.ig.eks-iw.au-poc.com"
+  dnsNames:
+  - "*.ig.eks-iw.au-poc.com"
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: letsencrypt-dns
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: istio-ingressgateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*.ig.eks-iw.au-poc.com"
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: ingress-cert # This should match the Certifcate secretName
+    hosts:
+    - "*.ig.eks-iw.au-poc.com"
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  labels:
+    kiali_wizard: weighted_routing
+  name: kiali
+  namespace: istio-system
+spec:
+  hosts:
+  - "kiali.ig.eks-iw.au-poc.com"
+  gateways:
+  - istio-ingressgateway
+  http:
+  - route:
+    - destination:
+        host: kiali.istio-system.svc.cluster.local
+        subset: kiali
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  labels:
+    kiali_wizard: weighted_routing
+  name: kiali
+  namespace: istio-system
+spec:
+  host: kiali.istio-system.svc.cluster.local
+  subsets:
+  - labels:
+      release: istio
+    name: kiali
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  labels:
+    kiali_wizard: weighted_routing
+  name: jaeger-query
+  namespace: istio-system
+spec:
+  hosts:
+  - "jaeger-query.ig.eks-iw.au-poc.com"
+  gateways:
+  - istio-ingressgateway
+  http:
+  - route:
+    - destination:
+        host: jaeger-query.istio-system.svc.cluster.local
+        subset: jaeger-query
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  labels:
+    kiali_wizard: weighted_routing
+  name: jaeger-query
+  namespace: istio-system
+spec:
+  host: jaeger-query.istio-system.svc.cluster.local
+  subsets:
+  - labels:
+      release: istio
+    name: jaeger-query

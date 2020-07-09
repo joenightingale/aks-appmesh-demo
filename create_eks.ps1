@@ -50,7 +50,7 @@ if ((Get-Command "istioctl" -ErrorAction SilentlyContinue) -eq $null)
 { 
   Write-Output "****************************************************"
   Write-Output "Please download the latest Istio Archive from: "
-  Write-Output "https://github.com/istio/istio/releases/download/1.5.2/istio-1.5.2-win.zip"
+  Write-Output "https://github.com/istio/istio/releases/download/1.6.3/istio-1.6.3-win.zip"
   Write-Output "unzip it somewhere and add the bin folder to your path"
   Write-Output ""
   Write-Output "Rerun this command when done."
@@ -78,7 +78,7 @@ if (($(docker images | awk '/daerepository03.eur.ad.sag:4443\/softwareag\/microg
   Write-Output "Pulling API Microgateway image from internal registry. Ensure you are on the VPN"
   docker pull daerepository03.eur.ad.sag:4443/softwareag/apigateway-trial:10.5.0.2
   Write-Output "Pulling API Microgateway image from internal registry. Ensure you are on the VPN"
-  docker pull daerep//ository03.eur.ad.sag:4443/softwareag/microgateway-trial:10.5.0.2
+  docker pull daerepository03.eur.ad.sag:4443/softwareag/microgateway-trial:10.5.0.2
 }
 
 Write-Output "Creating DNS Zone: $DNS_ZONE in AWS with caller-referece [$CALLER_REF]"
@@ -119,7 +119,7 @@ helm repo update
 Write-Output "Installing nginx-ingress using helm"
 helm install nginx-ingress stable/nginx-ingress  -n nginx-ingress --wait
 Write-Output "Getting nginx-ingress IP Address"
-Set-Variable -Name "NGINX_INGRESS" -Value $(kubectl get service -l app=nginx-ingress -n nginx-ingress | grep nginx-ingress-controller | awk '{print $4}')
+Set-Variable -Name "NGINX_INGRESS" -Value $(kubectl get service -l app=nginx-ingress -n nginx-ingress | awk '/nginx-ingress-controller/ {print $4}')
 do
 {
   Set-Variable -Name "NGINX_INGRESS_IP" -Value $(ping -n 1 $NGINX_INGRESS | grep $NGINX_INGRESS | sed 's/^[^[]*\\[\\([^\\]\*\\)\\].*$/\\1/')
@@ -205,9 +205,9 @@ do
 } While ($CERT_READY -ne "True")
 Write-Output "Certificate ready..."
 
-Write-Output "Create registries namespace..."
-kubectl create namespace monitoring
-kubectl config set-context --current --namespace=monitoring
+Write-Output "Create monitor namespace..."
+kubectl create namespace monitor
+kubectl config set-context --current --namespace=monitor
 Write-Output "Installing Elastic DaemonSet to ensure ulimits increased"
 kubectl apply -f .\es-sysctl-ds.yaml
 Write-Output "Installing Elastic Search"
@@ -264,3 +264,31 @@ do
 Write-Output "Certificate ready..."
 
 kubectl get pods
+
+Write-Output "Enabling Istio Ingress Gateway on *.ig.$DNS_ZONE"
+
+Write-Output "Need to create a user in IAM with the role cert-manager"
+$(kubectl get service istio-ingressgateway -n istio-system | awk '/istio-ingressgateway/ { print $4} ')
+ Set-Variable -Name "ISTIO_INGRESSGATEWAY" -Value $(kubectl get service istio-ingressgateway -n istio-system | awk '/istio-ingressgateway/ { print $4} ')
+ do
+ {
+   Set-Variable -Name "ISTIO_INGRESSGATEWAY_IP" -Value $(ping -n 1 $ISTIO_INGRESSGATEWAY | grep $ISTIO_INGRESSGATEWAY | sed 's/^[^[]*\\[\\([^\\]\*\\)\\].*$/\\1/')
+   Start-Sleep 30
+   Write-Output "Waiting for DNS names to progagate... ($ISTIO_INGRESSGATEWAY_IP)"  
+ } While ($ISTIO_INGRESSGATEWAY_IP -like 'Ping request could not find host*')
+ Write-Output "Pointing *.ig.$DNS_ZONE to istio-ingressgateway: $ISTIO_INGRESSGATEWAY, NGINX_INGRESS_IP: $ISTIO_INGRESSGATEWAY_IP"
+ Get-Content aws_dns_record-ig.json | sed "s/DNS_ZONE/$DNS_ZONE/g" | sed "s/ISTIO_INGRESSGATEWAY/$ISTIO_INGRESSGATEWAY/g" > aws_dns_record-ig-$RESOURCE_GROUP.json
+ aws route53 change-resource-record-sets --hosted-zone-id $HOSTED_ZONE_ID  --change-batch file://aws_dns_record-ig-$RESOURCE_GROUP.json
+ do
+ {
+   Set-Variable -Name "IP_CURRENT" -Value $(ping -n 1 kiali.ig.$DNS_ZONE | grep $ISTIO_INGRESSGATEWAY | sed 's/^[^[]*\\[\\([^\\]\*\\)\\].*$/\\1/')
+   Start-Sleep 30
+   Write-Output "Waiting for DNS names to progagate... ($ISTIO_INGRESSGATEWAY_IP - $IP_CURRENT)"  
+ } While ($ISTIO_INGRESSGATEWAY_IP -ne $IP_CURRENT)
+ Write-Output "DNS names progagated..."
+ 
+kubectl create secret route53-credentials-secret --from-file=secret-access-key=.\secret-key.txt -n nginx-ingress
+Get-Content cluster-issuer-Route53.yaml | sed "s/DNS_ZONE/$DNS_ZONE/g" | sed "s/ACME_EMAIL/$ACME_EMAIL/g" | sed "s/AWS_REGION/$AWS_REGION/g" | sed "s/AWS_ACCESS_KEY/$AWS_ACCESS_KEY/g" >  cluster-issuer-Route53-$RESOURCE_GROUP.yaml
+kubectl apply -f .\cluster-issuer-Route53-$RESOURCE_GROUP.yaml -n nginx-ingress
+Get-Content istio-gateway.yaml | sed "s/DNS_ZONE/$DNS_ZONE/g" >  istio-gateway-$RESOURCE_GROUP.yaml
+kubectl apply -f .\istio-gateway-$RESOURCE_GROUP.yaml -n istio-system

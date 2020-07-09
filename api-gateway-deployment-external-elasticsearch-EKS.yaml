@@ -24,7 +24,7 @@ spec:
       containers:
       - name: api-gateway-deployment-external-es
         # Please fill in the path to your api gateway image stored in a docker registry.
-        image: harbor.DNS_ZONE/library/softwareag/apigateway-trial:10.5.0.2
+        image: harbor.eks-iw.au-poc.com/library/softwareag/apigateway-trial:10.5.0.2
         # The default pull policy is IfNotPresent which causes the Kubelet to skip pulling an image if it already exists.
         # If you would like to always force a pull use "Always"        
         imagePullPolicy: IfNotPresent
@@ -79,7 +79,6 @@ spec:
   ports:
     - name: http
       port: 5555
-      targetPort: 5555
       protocol: TCP 
   selector:
     app: api-gateway-deployment-external-es
@@ -96,7 +95,6 @@ spec:
   ports:
     - name: http
       port: 9072
-      targetPort: 9072
       protocol: TCP 
   selector:
     app: api-gateway-deployment-external-es
@@ -112,10 +110,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - api-gateway.DNS_ZONE
+    - api-gateway.eks-iw.au-poc.com
     secretName: api-gateway-tls-secret
   rules:
-  - host: api-gateway.DNS_ZONE
+  - host: api-gateway.eks-iw.au-poc.com
     http:
       paths:
         - path: /

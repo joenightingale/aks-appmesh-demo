@@ -1,0 +1,14 @@
+{
+    "Policy": {
+        "PolicyName": "cert-manager",
+        "PolicyId": "ANPA36ZRBUR7JGSTIKWRP",
+        "Arn": "arn:aws:iam::822052234366:policy/cert-manager",
+        "Path": "/",
+        "DefaultVersionId": "v1",
+        "AttachmentCount": 0,
+        "PermissionsBoundaryUsageCount": 0,
+        "IsAttachable": true,
+        "CreateDate": "2020-06-11T03:10:26+00:00",
+        "UpdateDate": "2020-06-11T03:10:26+00:00"
+    }
+}
