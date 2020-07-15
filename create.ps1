@@ -5,6 +5,7 @@ $Properties=ConvertFrom-StringData $PropertiesToConvert;
 
 Set-Variable -Name "RESOURCE_GROUP" -Value  $Properties["RESOURCE_GROUP"]
 Set-Variable -Name "AZURE_REGION" -Value    $Properties["AZURE_REGION"]
+Set-Variable -Name "AZURE_SUBSCRIPTION" -Value    $Properties["AZURE_SUBSCRIPTION"]
 Set-Variable -Name "CLUSTER_NAME" -Value    $Properties["CLUSTER_NAME"]
 Set-Variable -Name "DNS_ZONE" -Value        $Properties["DNS_ZONE"]
 Set-Variable -Name "ACME_EMAIL" -Value      $Properties["ACME_EMAIL"]
@@ -14,6 +15,7 @@ Get-Content kubernetes-dashboard-ingress.yaml| sed "s/DNS_ZONE/$DNS_ZONE/g" >  k
 Get-Content kiali-ingress.yaml | sed "s/DNS_ZONE/$DNS_ZONE/g" >  kiali-ingress-$RESOURCE_GROUP.yaml
 Get-Content api-gateway-deployment-external-elasticsearch.yaml | sed "s/DNS_ZONE/$DNS_ZONE/g" >  api-gateway-deployment-external-elasticsearch-$RESOURCE_GROUP.yaml
 Get-Content nodetours.yaml | sed "s/DNS_ZONE/$DNS_ZONE/g" >  nodetours-$RESOURCE_GROUP.yaml
+Get-Content nodetours-ingress.yaml | sed "s/DNS_ZONE/$DNS_ZONE/g" >  nodetours-ingress-$RESOURCE_GROUP.yaml
 
 Function pause ($message)
 {
@@ -91,19 +93,19 @@ if (($(docker images | awk '/daerepository03.eur.ad.sag:4443\/softwareag\/microg
 }
 
 Write-Output "Creating Azure Resource Group: $RESOURCE_GROUP"
-az group create --name $RESOURCE_GROUP --location $AZURE_REGION
+az group create --name $RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --location $AZURE_REGION
 Write-Output "Creating DNS Zone: $DNS_ZONE in Azure"
-az network dns zone create --resource-group $RESOURCE_GROUP --name $DNS_ZONE
+az network dns zone create --resource-group $RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --name $DNS_ZONE
 Write-Output "****************************************************"
 Write-Output "Please ensure your DNS registrar now points $DNS_ZONE to the Azure NameServers above"
 Write-Output "****************************************************"
 pause "Press any key to continue, when this is done"
-Write-Output "Creating AZK Cluster: $CLUSTER_NAME"
-az aks create --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME --node-count 2 --enable-addons monitoring --generate-ssh-keys
-Write-Output "Adding AZK Cluster credentials to Kube Config"
-az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME --overwrite-existing
+Write-Output "Creating AKS Cluster: $CLUSTER_NAME"
+az aks create --resource-group $RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --name $CLUSTER_NAME --node-count 2 --enable-addons monitoring --generate-ssh-keys
+Write-Output "Adding AKS Cluster credentials to Kube Config"
+az aks get-credentials --resource-group $RESOURCE_GROUP --subscription "Microsoft Azure Enterprise" --name $CLUSTER_NAME --overwrite-existing
 kubectl config use-context $CLUSTER_NAME
-Write-Output "Listing AZK Cluster nodes"
+Write-Output "Listing AKS Cluster nodes"
 kubectl get nodes
 
 Write-Output "Creating nginx-ingress namespace"
@@ -118,9 +120,9 @@ helm install nginx-ingress stable/nginx-ingress  -n nginx-ingress --wait
 Write-Output "Getting nginx-ingress IP Address"
 Set-Variable -Name "IP_INGRESS" -Value $(kubectl get service -l app=nginx-ingress -n nginx-ingress | grep nginx-ingress-controller | awk '{print $4}')
 Write-Output "Removing any old DNS references from Azure DNS Zone"
-az network dns record-set a delete --yes --resource-group $RESOURCE_GROUP --zone-name $DNS_ZONE --name '*'
+az network dns record-set a delete --yes --resource-group $RESOURCE_GROUP --subscription "Microsoft Azure Enterprise" --zone-name $DNS_ZONE --name '*'
 Write-Output "Pointing *.$DNS_ZONE to nginx-ingress: $IP_INGRESS"
-az network dns record-set a add-record --resource-group $RESOURCE_GROUP --zone-name $DNS_ZONE --record-set-name '*'  --ipv4-address $IP_INGRESS
+az network dns record-set a add-record --resource-group $RESOURCE_GROUP --subscription "Microsoft Azure Enterprise" --zone-name $DNS_ZONE --record-set-name '*'  --ipv4-address $IP_INGRESS
 do
 {
   Set-Variable -Name "IP_CURRENT" -Value $(ping -n 1 harbor.$DNS_ZONE | grep harbor.$DNS_ZONE | sed 's/^[^[]*\\[\\([^\\]\*\\)\\].*$/\\1/')
@@ -165,7 +167,7 @@ kubectl create namespace registries
 kubectl config set-context --current --namespace=registries
 Write-Output "Install harbor using helm"
 helm repo add bitnami https://charts.bitnami.com/bitnami
-helm install harbor bitnami/harbor --set service.type=Ingress --set service.ingress.hosts.core=harbor.$DNS_ZONE --set service.ingress.annotations.'cert-manager\.io/cluster-issuer'=letsencrypt --set service.ingress.annotations.'kubernetes\.io/ingress\.class'=nginx --set externalURL=https://harbor.$DNS_ZONE --set service.tls.secretName=bitnami-harbor-ingress-cert --set notary.enabled=false --wait
+helm install harbor bitnami/harbor --version 5.4.0 --set service.type=Ingress --set service.ingress.hosts.core=harbor.$DNS_ZONE --set service.ingress.annotations.'cert-manager\.io/cluster-issuer'=letsencrypt --set service.ingress.annotations.'kubernetes\.io/ingress\.class'=nginx --set externalURL=https://harbor.$DNS_ZONE --set service.tls.secretName=bitnami-harbor-ingress-cert --set notary.enabled=false --wait
 do
 {
   Set-Variable -Name "CERT_READY" -Value $(kubectl get certificate | awk '/bitnami-harbor-ingress-cert/ { print $2 }')
@@ -195,9 +197,9 @@ do
 } While ($CERT_READY -ne "True")
 Write-Output "Certificate ready..."
 
-Write-Output "Create registries namespace..."
-kubectl create namespace monitoring
-kubectl config set-context --current --namespace=monitoring
+Write-Output "Create monitor namespace..."
+kubectl create namespace monitor
+kubectl config set-context --current --namespace=monitor
 Write-Output "Installing Elastic DaemonSet to ensure ulimits increased"
 kubectl apply -f .\es-sysctl-ds.yaml
 Write-Output "Installing Elastic Search"

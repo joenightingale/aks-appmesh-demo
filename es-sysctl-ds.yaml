@@ -1,14 +1,17 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
+  name: es-sysctl-ds
   labels:
     k8s-app: es-sysctl-ds
-  name: es-sysctl-ds
 spec:
+  selector:
+    matchLabels:
+      agentpool: agentpool
   template:
     metadata:
       labels:
-        k8s-app: es-sysctl-ds
+        agentpool: agentpool
     spec:
       containers:
       - command:
