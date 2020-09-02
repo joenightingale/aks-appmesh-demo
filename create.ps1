@@ -3,12 +3,15 @@ $RawProperties=Get-Content $PropertyFilePath;
 $PropertiesToConvert=($RawProperties -replace '\\','\\') -join [Environment]::NewLine;
 $Properties=ConvertFrom-StringData $PropertiesToConvert;
 
-Set-Variable -Name "RESOURCE_GROUP" -Value  $Properties["RESOURCE_GROUP"]
-Set-Variable -Name "AZURE_REGION" -Value    $Properties["AZURE_REGION"]
-Set-Variable -Name "AZURE_SUBSCRIPTION" -Value    $Properties["AZURE_SUBSCRIPTION"]
-Set-Variable -Name "CLUSTER_NAME" -Value    $Properties["CLUSTER_NAME"]
-Set-Variable -Name "DNS_ZONE" -Value        $Properties["DNS_ZONE"]
-Set-Variable -Name "ACME_EMAIL" -Value      $Properties["ACME_EMAIL"]
+Set-Variable -Name "RESOURCE_GROUP" -Value                  $Properties["RESOURCE_GROUP"]
+Set-Variable -Name "AZURE_REGION" -Value                    $Properties["AZURE_REGION"]
+Set-Variable -Name "AZURE_SUBSCRIPTION" -Value              $Properties["AZURE_SUBSCRIPTION"]
+Set-Variable -Name "AZURE_TENANT" -Value                    $Properties["AZURE_TENANT"]
+Set-Variable -Name "CLUSTER_NAME" -Value                    $Properties["CLUSTER_NAME"]
+Set-Variable -Name "DNS_ZONE" -Value                        $Properties["DNS_ZONE"]
+Set-Variable -Name "ACME_EMAIL" -Value                      $Properties["ACME_EMAIL"]
+Set-Variable -Name "AZURE_CERT_MANAGER_NEW_SP_NAME" -Value  $Properties["AZURE_CERT_MANAGER_NEW_SP_NAME"]
+
 
 Get-Content cluster-issuer.yaml | sed "s/ACME_EMAIL/$ACME_EMAIL/g" > cluster-issuer-$RESOURCE_GROUP.yaml
 Get-Content kubernetes-dashboard-ingress.yaml| sed "s/DNS_ZONE/$DNS_ZONE/g" >  kubernetes-dashboard-ingress-$RESOURCE_GROUP.yaml
@@ -66,7 +69,7 @@ if ((Get-Command "helm" -ErrorAction SilentlyContinue) -eq $null)
 }
 
 Write-Output "Logging into Azure"
-az login
+az login --tenant $AZURE_TENANT
 if ((Get-Command "kubectl" -ErrorAction SilentlyContinue) -eq $null) 
 { 
   Write-Output "Installing kubectl"
@@ -101,9 +104,9 @@ Write-Output "Please ensure your DNS registrar now points $DNS_ZONE to the Azure
 Write-Output "****************************************************"
 pause "Press any key to continue, when this is done"
 Write-Output "Creating AKS Cluster: $CLUSTER_NAME"
-az aks create --resource-group $RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --name $CLUSTER_NAME --node-count 2 --enable-addons monitoring --generate-ssh-keys
+az aks create --resource-group $RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --name $CLUSTER_NAME --node-count 2 --enable-addons monitoring --generate-ssh-keys --enable-managed-identity
 Write-Output "Adding AKS Cluster credentials to Kube Config"
-az aks get-credentials --resource-group $RESOURCE_GROUP --subscription "Microsoft Azure Enterprise" --name $CLUSTER_NAME --overwrite-existing
+az aks get-credentials --resource-group $RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --name $CLUSTER_NAME --overwrite-existing
 kubectl config use-context $CLUSTER_NAME
 Write-Output "Listing AKS Cluster nodes"
 kubectl get nodes
@@ -120,9 +123,9 @@ helm install nginx-ingress stable/nginx-ingress  -n nginx-ingress --wait
 Write-Output "Getting nginx-ingress IP Address"
 Set-Variable -Name "IP_INGRESS" -Value $(kubectl get service -l app=nginx-ingress -n nginx-ingress | grep nginx-ingress-controller | awk '{print $4}')
 Write-Output "Removing any old DNS references from Azure DNS Zone"
-az network dns record-set a delete --yes --resource-group $RESOURCE_GROUP --subscription "Microsoft Azure Enterprise" --zone-name $DNS_ZONE --name '*'
+az network dns record-set a delete --yes --resource-group $RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --zone-name $DNS_ZONE --name '*'
 Write-Output "Pointing *.$DNS_ZONE to nginx-ingress: $IP_INGRESS"
-az network dns record-set a add-record --resource-group $RESOURCE_GROUP --subscription "Microsoft Azure Enterprise" --zone-name $DNS_ZONE --record-set-name '*'  --ipv4-address $IP_INGRESS
+az network dns record-set a add-record --resource-group $RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --zone-name $DNS_ZONE --record-set-name '*'  --ipv4-address $IP_INGRESS
 do
 {
   Set-Variable -Name "IP_CURRENT" -Value $(ping -n 1 harbor.$DNS_ZONE | grep harbor.$DNS_ZONE | sed 's/^[^[]*\\[\\([^\\]\*\\)\\].*$/\\1/')
@@ -139,6 +142,10 @@ Write-Output "Installing cert-manager using helm"
 helm install cert-manager --version v0.13.0  jetstack/cert-manager --wait
 Write-Output "Wait for cert-manager to be ready..."
 Start-Sleep 60
+
+
+
+
 Write-Output "Creating letsencrypt ClusterIssuer"
 kubectl apply -f cluster-issuer-$RESOURCE_GROUP.yaml
 Write-Output "Install kubernetes-dashboard"
