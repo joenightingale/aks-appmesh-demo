@@ -49,7 +49,7 @@ if ((Get-Command "istioctl" -ErrorAction SilentlyContinue) -eq $null)
 { 
   Write-Output "****************************************************"
   Write-Output "Please download the latest Istio Archive from: "
-  Write-Output "https://github.com/istio/istio/releases/download/1.5.2/istio-1.5.2-win.zip"
+  Write-Output "https://github.com/istio/istio/releases/"
   Write-Output "unzip it somewhere and add the bin folder to your path"
   Write-Output ""
   Write-Output "Rerun this command when done."
@@ -209,6 +209,8 @@ kubectl create namespace monitor
 kubectl config set-context --current --namespace=monitor
 Write-Output "Installing Elastic DaemonSet to ensure ulimits increased"
 kubectl apply -f .\es-sysctl-ds.yaml
+Write-Output "Creating Elastic data PVC"
+kubectl apply -f .\elastic-data-pvc.yaml
 Write-Output "Installing Elastic Search"
 kubectl apply -f .\elasticsearch.yaml
 

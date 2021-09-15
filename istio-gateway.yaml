@@ -48,10 +48,12 @@ spec:
   hosts:
   - "kiali.ig.DNS_ZONE"
   gateways:
-  - ingress-gateway-configuration
+  - istio-ingressgateway
   http:
   - route:
     - destination:
+        port:
+          number: 20001
         host: kiali.istio-system.svc.cluster.local
         subset: kiali
 ---

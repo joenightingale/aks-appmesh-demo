@@ -1,5 +1,5 @@
 kind: Ingress
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 metadata:
   name: fleetman-ingress
   annotations:
@@ -9,13 +9,16 @@ metadata:
 spec:
   tls:
     - hosts:
-        - fleetman-development.aks.au-poc.com
+        - fleetman-development.eks.au-poc.com
       secretName: fleetman-development-tls-secret
   rules:
-    - host: fleetman-development.aks.au-poc.com
+    - host: fleetman-development.eks.au-poc.com
       http:
         paths:
           - path: /
+            pathType: Prefix
             backend:
-              serviceName: fleetman-webapp
-              servicePort: 80
+              service:
+                name: fleetman-webapp
+                port:
+                  number: 80

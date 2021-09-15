@@ -24,12 +24,14 @@ spec:
       containers:
       - name: api-gateway-deployment-external-es
         # Please fill in the path to your api gateway image stored in a docker registry.
-        image: harbor.DNS_ZONE/library/softwareag/apigateway-trial:10.5.0.2
+        image: harbor.DNS_ZONE/library/softwareag/apigateway-trial:10.7
         # The default pull policy is IfNotPresent which causes the Kubelet to skip pulling an image if it already exists.
         # If you would like to always force a pull use "Always"        
         imagePullPolicy: IfNotPresent
         env:
         # Please fill in your datas to access your external elasticsearch.
+        - name: apigw_elasticsearch_tenantId
+          value: nodetours-api-gateway-deployment-external-es
         # Url pointing to your running elasticsearch for example: 127.0.0.1:9200
         - name: apigw_elasticsearch_hosts
           value: "elasticsearch-service.monitor:9200"
@@ -101,7 +103,7 @@ spec:
   selector:
     app: api-gateway-deployment-external-es
 ---
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: apigateway-ingress
@@ -119,10 +121,16 @@ spec:
     http:
       paths:
         - path: /
+          pathType: Prefix
           backend:
-            serviceName: api-gateway-service
-            servicePort: 5555
+            service:
+              name: api-gateway-service
+              port:
+                number: 5555
         - path: /apigatewayui/
+          pathType: Prefix
           backend:
-            serviceName: api-gatewayui-service
-            servicePort: 9072
+            service:
+              name: api-gatewayui-service
+              port:
+                number: 9072

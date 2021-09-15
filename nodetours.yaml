@@ -94,7 +94,7 @@ spec:
     targetPort: 7777
     protocol: TCP
 ---
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: nodetours-ingress
@@ -112,6 +112,9 @@ spec:
     http:
       paths:
         - path: /
+          pathType: Prefix
           backend:
-            serviceName: nodetours
-            servicePort: 7777
+            service:
+              name: nodetours
+              port:
+                number: 7777

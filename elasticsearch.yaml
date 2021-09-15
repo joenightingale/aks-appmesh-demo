@@ -23,7 +23,7 @@ spec:
       containers:
       # The elasticsearch container
       - name: elastic-search
-        image: docker.elastic.co/elasticsearch/elasticsearch:7.2.0
+        image: docker.elastic.co/elasticsearch/elasticsearch:7.7.1
         imagePullPolicy: IfNotPresent
         env:
         - name: "xpack.security.enabled"
@@ -54,6 +54,15 @@ spec:
           tcpSocket:
             port: 9200
           timeoutSeconds: 2
+        volumeMounts:
+        - name: data-volume
+          mountPath: /usr/share/elasticsearch/data
+      securityContext:
+        fsGroup: 1000
+      volumes:
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: elastic-data
 ---
 # An example service for the deployment above.
 apiVersion: v1

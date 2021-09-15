@@ -2,15 +2,20 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: staff-service
+  labels:
+    app: staff-service
+    version: v6
 spec:
   selector:
     matchLabels:
       app: staff-service
+      version: v6
   replicas: 1
   template: # template for the pods
     metadata:
       labels:
         app: staff-service
+        version: v6
     spec:
       containers:
       - name: staff-service

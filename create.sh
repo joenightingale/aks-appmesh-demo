@@ -1,5 +1,6 @@
-#!/bin/sh
+#!/bin/zsh
 #
+ 
 file="./input.properties"
 
 if [  -f "$file" ]
@@ -38,8 +39,7 @@ Function pause ($message)
     }
 }
 
-if ((Get-Command "az" -ErrorAction SilentlyContinue) -eq $null) 
-{ 
+if ! type "az" > /dev/null; then
   echo "****************************************************"
   echo "Please download and install the Azure CLI from: "
   echo "https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-windows?view=azure-cli-latest"
@@ -47,9 +47,9 @@ if ((Get-Command "az" -ErrorAction SilentlyContinue) -eq $null)
   echo "Rerun this command when done."
   echo "****************************************************"
   exit
-}
-if ((Get-Command "istioctl" -ErrorAction SilentlyContinue) -eq $null) 
-{ 
+fi
+
+if ! type "istioctl" > /dev/null; then
   echo "****************************************************"
   echo "Please download the latest Istio Archive from: "
   echo "https://github.com/istio/istio/releases/download/1.5.2/istio-1.5.2-win.zip"
@@ -58,7 +58,7 @@ if ((Get-Command "istioctl" -ErrorAction SilentlyContinue) -eq $null)
   echo "Rerun this command when done."
   echo "****************************************************"
   exit
-}
+fi
   
 echo "Logging into Azure"
 az login
