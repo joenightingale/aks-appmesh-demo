@@ -10,12 +10,12 @@ Set-Variable -Name "CLUSTER_NAME" -Value    $Properties["CLUSTER_NAME"]
 Set-Variable -Name "DNS_ZONE" -Value        $Properties["DNS_ZONE"]
 Set-Variable -Name "ACME_EMAIL" -Value      $Properties["ACME_EMAIL"]
 
-Get-Content cluster-issuer.yaml | sed "s/ACME_EMAIL/$ACME_EMAIL/g" > cluster-issuer-$RESOURCE_GROUP.yaml
-Get-Content kubernetes-dashboard-ingress.yaml| sed "s/DNS_ZONE/$DNS_ZONE/g" >  kubernetes-dashboard-ingress-$RESOURCE_GROUP.yaml
-Get-Content kiali-ingress.yaml | sed "s/DNS_ZONE/$DNS_ZONE/g" >  kiali-ingress-$RESOURCE_GROUP.yaml
-Get-Content api-gateway-deployment-external-elasticsearch.yaml | sed "s/DNS_ZONE/$DNS_ZONE/g" >  api-gateway-deployment-external-elasticsearch-$RESOURCE_GROUP.yaml
-Get-Content nodetours.yaml | sed "s/DNS_ZONE/$DNS_ZONE/g" >  nodetours-$RESOURCE_GROUP.yaml
-Get-Content nodetours-ingress.yaml | sed "s/DNS_ZONE/$DNS_ZONE/g" >  nodetours-ingress-$RESOURCE_GROUP.yaml
+Get-Content cluster-issuer.yaml | wsl sed "s/ACME_EMAIL/$ACME_EMAIL/g" > cluster-issuer-$RESOURCE_GROUP.yaml
+Get-Content kubernetes-dashboard-ingress.yaml| wsl sed "s/DNS_ZONE/$DNS_ZONE/g" >  kubernetes-dashboard-ingress-$RESOURCE_GROUP.yaml
+Get-Content kiali-ingress.yaml | wsl sed "s/DNS_ZONE/$DNS_ZONE/g" >  kiali-ingress-$RESOURCE_GROUP.yaml
+Get-Content api-gateway-deployment-external-elasticsearch.yaml | wsl sed "s/DNS_ZONE/$DNS_ZONE/g" >  api-gateway-deployment-external-elasticsearch-$RESOURCE_GROUP.yaml
+Get-Content nodetours.yaml | wsl sed "s/DNS_ZONE/$DNS_ZONE/g" >  nodetours-$RESOURCE_GROUP.yaml
+Get-Content nodetours-ingress.yaml | wsl sed "s/DNS_ZONE/$DNS_ZONE/g" >  nodetours-ingress-$RESOURCE_GROUP.yaml
 
 Function pause ($message)
 {
@@ -76,10 +76,10 @@ if ((Get-Command "kubectl" -ErrorAction SilentlyContinue) -eq $null)
 }
 
 Write-Output "Checking that the API Gateway and Microgateway images are present"
-if (($(docker images | awk '/daerepository03.eur.ad.sag:4443\/softwareag\/microgateway-trial/ { print $2 }') -ne "10.5.0.2") -or
-    ($(docker images | awk '/daerepository03.eur.ad.sag:4443\/softwareag\/apigateway-trial/ { print $2 }') -ne "10.5.0.2"))
+if ((!$(docker images | wsl grep microgateway-trial).Contains('10.5.0.2')) -or
+    (!$(docker images | wsl grep apigateway-trial).Contains('10.5.0.2')))
 {
-  if ($(ping -n 1 daerepository03.eur.ad.sag | awk '/Reply from/ { print $1 }') -ne "Reply")
+  if (!$(ping -n 1 daerepository03.eur.ad.sag).StartsWith("Reply"))
   {
     Write-Output "******************************************************************************"
     Write-Output "Please connect to the VPN to pull the API Gateway & Microgateway docker images"
@@ -93,17 +93,17 @@ if (($(docker images | awk '/daerepository03.eur.ad.sag:4443\/softwareag\/microg
 }
 
 Write-Output "Creating Azure Resource Group: $RESOURCE_GROUP"
-az group create --name $RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --location $AZURE_REGION
+#az group create --name $RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --location $AZURE_REGION
 Write-Output "Creating DNS Zone: $DNS_ZONE in Azure"
 az network dns zone create --resource-group $RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --name $DNS_ZONE
 Write-Output "****************************************************"
 Write-Output "Please ensure your DNS registrar now points $DNS_ZONE to the Azure NameServers above"
 Write-Output "****************************************************"
-pause "Press any key to continue, when this is done"
+#pause "Press any key to continue, when this is done"
 Write-Output "Creating AKS Cluster: $CLUSTER_NAME"
-az aks create --resource-group $RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --name $CLUSTER_NAME --node-count 2 --enable-addons monitoring --generate-ssh-keys
+#az aks create --resource-group $RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --name $CLUSTER_NAME --node-count 2 --enable-addons monitoring --generate-ssh-keys
 Write-Output "Adding AKS Cluster credentials to Kube Config"
-az aks get-credentials --resource-group $RESOURCE_GROUP --subscription "Microsoft Azure Enterprise" --name $CLUSTER_NAME --overwrite-existing
+az aks get-credentials --resource-group $RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --name $CLUSTER_NAME --overwrite-existing
 kubectl config use-context $CLUSTER_NAME
 Write-Output "Listing AKS Cluster nodes"
 kubectl get nodes
@@ -111,21 +111,26 @@ kubectl get nodes
 Write-Output "Creating nginx-ingress namespace"
 kubectl create namespace nginx-ingress
 kubectl config set-context --current --namespace=nginx-ingress
-Write-Output "Adding nginx-ingress repoo to helm"
-helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+Write-Output "Adding nginx-ingress repo to helm"
+# helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+helm repo add stable https://charts.helm.sh/stable
 Write-Output "Refreshing helm repoos"
 helm repo update
 Write-Output "Installing nginx-ingress using helm"
 helm install nginx-ingress stable/nginx-ingress  -n nginx-ingress --wait
+
 Write-Output "Getting nginx-ingress IP Address"
-Set-Variable -Name "IP_INGRESS" -Value $(kubectl get service -l app=nginx-ingress -n nginx-ingress | grep nginx-ingress-controller | awk '{print $4}')
+# Set-Variable -Name "IP_INGRESS" -Value $(kubectl get service -l app=nginx-ingress -n nginx-ingress | wsl grep nginx-ingress-controller | wsl awk '{print $4}')
+Set-Variable -Name "IP_INGRESS" -Value $(kubectl get service -l app=nginx-ingress -n nginx-ingress | wsl grep nginx-ingress-controller).split(" ",[System.StringSplitOptions]::RemoveEmptyEntries)[3]
+
 Write-Output "Removing any old DNS references from Azure DNS Zone"
-az network dns record-set a delete --yes --resource-group $RESOURCE_GROUP --subscription "Microsoft Azure Enterprise" --zone-name $DNS_ZONE --name '*'
+az network dns record-set a delete --yes --resource-group $RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --zone-name $DNS_ZONE --name '*'
 Write-Output "Pointing *.$DNS_ZONE to nginx-ingress: $IP_INGRESS"
-az network dns record-set a add-record --resource-group $RESOURCE_GROUP --subscription "Microsoft Azure Enterprise" --zone-name $DNS_ZONE --record-set-name '*'  --ipv4-address $IP_INGRESS
+az network dns record-set a add-record --resource-group $RESOURCE_GROUP --subscription $AZURE_SUBSCRIPTION --zone-name $DNS_ZONE --record-set-name '*'  --ipv4-address $IP_INGRESS
 do
 {
-  Set-Variable -Name "IP_CURRENT" -Value $(ping -n 1 harbor.$DNS_ZONE | grep harbor.$DNS_ZONE | sed 's/^[^[]*\\[\\([^\\]\*\\)\\].*$/\\1/')
+  #Set-Variable -Name "IP_CURRENT" -Value $(ping -n 1 harbor.$DNS_ZONE | wsl grep harbor.$DNS_ZONE | wsl sed 's/^[^[]*\\[\\([^\\]\*\\)\\].*$/\\1/')
+  Set-Variable -Name "IP_CURRENT" -Value ($(ping -n 1 "harbor.$DNS_ZONE"  | wsl grep "harbor.$DNS_ZONE") -replace '.+\[(\d{1,3}(\.\d{1,3}){3})\].+','$1')
   Start-Sleep 30
   Write-Output "Waiting for DNS names to progagate... ($IP_INGRESS - $IP_CURRENT)"  
 } While ($IP_INGRESS -ne $IP_CURRENT)
@@ -136,9 +141,10 @@ helm repo add jetstack https://charts.jetstack.io
 Write-Output "Refreshing helm repoos"
 helm repo update
 Write-Output "Installing cert-manager using helm"
-helm install cert-manager --version v0.13.0  jetstack/cert-manager --wait
+helm install cert-manager --version v1.9.1  jetstack/cert-manager --set installCRDs=true --wait
 Write-Output "Wait for cert-manager to be ready..."
 Start-Sleep 60
+
 Write-Output "Creating letsencrypt ClusterIssuer"
 kubectl apply -f cluster-issuer-$RESOURCE_GROUP.yaml
 Write-Output "Install kubernetes-dashboard"
@@ -149,14 +155,14 @@ kubectl create serviceaccount dashboard-admin-sa
 Write-Output "Bind admin-sa service account to cluster-admin ClusterRole"
 kubectl create clusterrolebinding dashboard-admin-sa --clusterrole=cluster-admin --serviceaccount=kubernetes-dashboard:dashboard-admin-sa
 Write-Output "Get login token secret for admin-sa"
-Set-Variable -Name "TOKEN_SECRET" -Value $(kubectl get secret | awk '/dashboard-admin-sa-token-/ { print $1 }')
+Set-Variable -Name "TOKEN_SECRET" -Value $(kubectl get secret | wsl grep 'dashboard-admin-sa-token-').split(" ",[System.StringSplitOptions]::RemoveEmptyEntries)[0]
 Write-Output "Describe login token secret for admin-sa"
 kubectl describe secret $TOKEN_SECRET
 Write-Output "Create kubernetes-dashboard ingress on address: kubernetes-dashboard.$DNS_ZONE"
 kubectl apply -f kubernetes-dashboard-ingress-$RESOURCE_GROUP.yaml
 do
 {
-  Set-Variable -Name "CERT_READY" -Value $(kubectl get certificate | awk '/kubernetes-dashboard-secret/ { print $2 }')
+  Set-Variable -Name "CERT_READY" -Value $(kubectl get certificate | wsl grep 'kubernetes-dashboard-secret').split(" ",[System.StringSplitOptions]::RemoveEmptyEntries)[1]
   Start-Sleep 30
   Write-Output "Waiting for Kubernetes-Dashboard certificate to be generated... ($CERT_READY)"  
 } While ($CERT_READY -ne "True")
@@ -170,7 +176,8 @@ helm repo add bitnami https://charts.bitnami.com/bitnami
 helm install harbor bitnami/harbor --version 5.4.0 --set service.type=Ingress --set service.ingress.hosts.core=harbor.$DNS_ZONE --set service.ingress.annotations.'cert-manager\.io/cluster-issuer'=letsencrypt --set service.ingress.annotations.'kubernetes\.io/ingress\.class'=nginx --set externalURL=https://harbor.$DNS_ZONE --set service.tls.secretName=bitnami-harbor-ingress-cert --set notary.enabled=false --wait
 do
 {
-  Set-Variable -Name "CERT_READY" -Value $(kubectl get certificate | awk '/bitnami-harbor-ingress-cert/ { print $2 }')
+  # Set-Variable -Name "CERT_READY" -Value $(kubectl get certificate | wsl grep bitnami-harbor-ingress-cert { print $2 }')
+  Set-Variable -Name "CERT_READY" -Value $(kubectl get certificate | wsl grep 'bitnami-harbor-ingress-cert') .split(" ",[System.StringSplitOptions]::RemoveEmptyEntries)[1]
   Start-Sleep 30
   Write-Output "Waiting for Harbor certificate to be generated... ($CERT_READY)"  
 } While ($CERT_READY -ne "True")
@@ -191,7 +198,8 @@ Write-Output "Create Kiali ingress"
 kubectl apply -f .\kiali-ingress-$RESOURCE_GROUP.yaml -n istio-system
 do
 {
-  Set-Variable -Name "CERT_READY" -Value $(kubectl get certificate -n istio-system | awk '/kiali-secret/ { print $2 }')
+  #Set-Variable -Name "CERT_READY" -Value $(kubectl get certificate -n istio-system | wsl awk '/kiali-secret/ { print $2 }')
+  Set-Variable -Name "CERT_READY" -Value $(kubectl get certificate -n istio-system | wsl grep 'kiali-secret').split(" ",[System.StringSplitOptions]::RemoveEmptyEntries)[1]
   Start-Sleep 30
   Write-Output "Waiting for Kiali certificate to be generated... ($CERT_READY)"  
 } While ($CERT_READY -ne "True")
@@ -214,7 +222,7 @@ Write-Output "Installing API Gateway"
 kubectl apply -f .\api-gateway-deployment-external-elasticsearch-$RESOURCE_GROUP.yaml
 do
 {
-  Set-Variable -Name "CERT_READY" -Value $(kubectl get certificate | awk '/api-gateway-tls-secret/ { print $2 }')
+  Set-Variable -Name "CERT_READY" -Value $(kubectl get certificate | wsl awk '/api-gateway-tls-secret/ { print $2 }')
   Start-Sleep 30
   Write-Output "Waiting for nodetours certificate to be generated... ($CERT_READY)"  
 } While ($CERT_READY -ne "True")
@@ -229,7 +237,7 @@ kubectl apply -f .\nodetours-$RESOURCE_GROUP.yaml
 Write-Output "Checking status of Nodetours demo pods"
 do
 {
-  Set-Variable -Name "CERT_READY" -Value $(kubectl get certificate | awk '/nodetours-tls-secret/ { print $2 }')
+  Set-Variable -Name "CERT_READY" -Value $(kubectl get certificate | wsl awk '/nodetours-tls-secret/ { print $2 }')
   Start-Sleep 30
   Write-Output "Waiting for nodetours certificate to be generated... ($CERT_READY)"  
 } While ($CERT_READY -ne "True")
